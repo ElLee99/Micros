@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  c:\users\johan lee\Documents\Atmel Studio\7.0\Voltimetro digital\Voltimetro digital\main.asm Wed Jun 08 12:25:00 2022
+AVRASM ver. 2.2.7  C:\Users\Johan Lee\Documents\Atmel Studio\7.0\Voltimetro digital\Voltimetro digital\main.asm Fri Jun 10 13:19:06 2022
 
 
 EQU  SIGNATURE_000 0000001e
@@ -697,8 +697,10 @@ EQU  SPMRaddr     00000032
 EQU  INT_VECTORS_SIZE 00000034
 DSEG tabla_display 00000100
 CSEG setup        0000002b
-CSEG ADC_Conversion 00000052
-CSEG main         00000051
-CSEG escalamiento 0000005e
-CSEG loop_comp    0000007d
-CSEG loop_comp2   00000086
+CSEG ADC_Conversion 00000056
+CSEG main         00000055
+CSEG escalamiento 00000062
+CSEG loop_comp1   00000069
+CSEG loop_comp2   0000006e
+CSEG es_cero      0000008b
+CSEG display      00000076

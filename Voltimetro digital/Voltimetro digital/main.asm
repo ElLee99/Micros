@@ -14,7 +14,7 @@ tabla_display:		.byte 0x10		//Reserva 16 espacios de memoria para el array de va
 					.cseg
 
 
-.org 0
+.org 0								//Vector de interrupción del RESET
 rjmp setup
 .org 0x002A							//Vector de interrupción de ADC (cuando se ha completado la conversión)
 rjmp ADC_Conversion
@@ -22,14 +22,18 @@ rjmp ADC_Conversion
 
 setup:
 
-	cbi DDRC, 0						//Pone en cero el puerto C0 para configurarlo como entrada
-	cbi PORTC, 0					//Activa la resistencia pulldown del puertoC0
+	cbi DDRC, 5						//Pone en cero el puerto C0 para configurarlo como entrada
+	cbi PORTC, 5					//Activa la resistencia pulldown del puertoC0
+	sbi DDRC, 0						//Pone en 1 el bit 0 del puertoC, para configurarlo como salida
 	sbi DDRC, 1						//Pone en 1 el bit 1 del puertoC, para configurarlo como salida
-	ldi r16,0xFF
+	sbi DDRC, 2						//Pone en 1 el bit 2 del puertoC, para configurarlo como salida
+	sbi DDRC, 3						//Pone en 1 el bit 3 del puertoC, para configurarlo como salida
+	ldi r16,0b1111_1100
 	out DDRD, r16					//Configuramos el puertoD como salida
+	ldi r16, 0xFF
 	out DDRB, r16					//Configuramos el puertoB como salida
 									//Configuramos el ADMUX ADC Multiplexor Selection Register
-	ldi r16, 0b0110_0000
+	ldi r16, 0b0110_0101
 	sts ADMUX, r16
 									//Configuramos el ADCSRA ADC Control and Status Register
 	ldi r16, 0b1000_1101
@@ -61,14 +65,18 @@ setup:
 	st y+, r16	
 
 
-	ldi r16, 0b1100_1101
+	ldi r16, 0b1100_1101			//Configuramos el ADCSRA ADC Control and Status Register, pero ahora iniciamos el ADC Start Conversion
 	sts 0x7a, r16		
 	sei
 	
 
 
 
-main:								//Ciclo principal del programa
+main:
+	
+
+
+									//Ciclo principal del programa
 	rjmp main
 
 
@@ -96,59 +104,53 @@ escalamiento:
 	ldi r17, 0b0001_1001			//Carga el valor de 0.19531.... al r17
 	fmul r16,r17					//Multiplica el valor del r16 al r17, el segundo término lo agarra como fraccionario
 	mov r16, r1						//Mueve el valor entero de nuestra multiplicación al r16
-	ldi r17, 0b0000_1101			//Carga el valor de 0.1015625 al r17
-	fmul r16, r17					//Multiplica el valor del r16 al r17, el segundo término lo agarra como fraccionario
-	mov r21, r1						//Mueve el valor entero de nuestra conversión al r21
-	sts 0x111, r1					//Carga el valor entero de nuestra conversión al r1
-	ldi r17, 5						
-	mul r0, r17						//Multiplicamos nuestro valor decimal de la conversion por 5 y lo dividimos por 128
-	ror r1
-	ror r0 
-	ror r1
-	ror r0 
-	ror r1
-	ror r0 
-	ror r1
-	ror r0 
-	ror r1
-	ror r0 
-	ror r1
-	ror r0 
-	ror r1
-	ror r0
-	mov r22, r0						//Mueve el valor entero de nuestra conversión al r21
-	sts 0x110, r0					//Carga el valor entero de nuestra conversión al r1
-
-
-
 	clz								//Limpiamos la bandera de Z
-	ldi r17, 10						//Cargamos el valor de 10 al r17 (contador)
-	loop_comp:						//Loop de comparación para saber que numero entero tenemos
-		dec r17
-		cpse r17,  r21
-		brne loop_comp
-	mov r28, r17					//Movemos el valor del contador al apuntador de Y
+									//Tenemos while anidado que nos ayudará a comparar el valor de r16 (nuestro voltaje), una vez que sepamos cual es, se sale del while, 
+									//ya con las direcciones de memoria del display
+
+	ldi r18, 0						
+	loop_comp1:		
+		inc r18
+		ldi r17, 10
+		ldi r19, 10
+		mul r17, r18
+		mov r17, r0			
+		loop_comp2:
+			dec r19
+			dec r17
+			cpi r17, 0
+			breq loop_comp1
+			cpi r17, 70
+			breq es_cero			//En caso de que nuestro voltaje sea cero, nos vamos a la rutina es_cero
+			cp r17,  r16
+			brne loop_comp2
+
+display:
+	dec r18
+	mov r28, r19					//Movemos el valor del contador r18 (nuestro entero) al apuntador de Y
 	ld r16, Y						//Cargamos el valor apuntado en Y (Numero del display)
+	mov r28, r18					//Movemos el valor del contador r18 (nuestro decimal) al apuntador de Y
+	ld r17, Y						//Cargamos el valor apuntado en Y (Numero del display)
+									//Rotamos el valor de los segmentos a los puertos que queremos usar en esta práctica
+	clr r20
+	lsl r16
+	rol r17
+	rol r20
+	lsl r16
+	rol r17
+	rol r20
 	out PORTD, r16					//Mandamos el valor del r16(numero del display) al PUERTOD
-	sbi PORTD, 7					//Ponemos el punto decimal en 1
-
-		
-	clz								//Limpiamos la bandera de Z
-	ldi r17, 10						//Cargamos el valor de 10 al r17 (contador)
-	loop_comp2:						//Loop de comparación para saber que numero decimal tenemos
-		dec r17
-		cpse r17,  r22
-		brne loop_comp2
-	mov r28, r17					//Movemos el valor del contador al apuntador de Y
-	ld r16, Y						//Cargamos el valor apuntado en Y (Numero del display)
-	out PORTB, r16					//Mandamos el valor del r16(numero del display) al PUERTOD
-	clr r17							//Limpiamos el r17
-									//Rotamos a la izquierda el valor del r16 y r17
-	rol r16
-	rol r17
-	rol r16
-	rol r17
-	rol r16
-	rol r17
-	out PORTC, r17					//Mandamos el valor del r17(numero rotado decimal del display) al PUERTOC
+	out PORTB, r17					//Mandamos el valor del r17(numero del display) al PUERTOB
+									//Rotamos otras dos veces el valor de nuestro r17, que será el que se desplegue en el PUERTOC, compensar el B7 y B8, que no estan en nuetra tarjeta
+	lsl r17
+	rol r20
+	lsl r17
+	rol r20
+	out PORTC, r20					//Mandamos el valor del r20(numero del display) al PUERTOC
+	sbi PORTC, 3					//Seteamos el valor del PUERTOC3, que es el punto decimal
 	ret								//Retornamos de la función
+
+es_cero:							//En caso de que sea cero, le damos los valores que va a desplegar en el display
+	ldi r18, 1						
+	ldi r17, 0
+	rjmp display					//Saltamos a la función del display
